@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>
+      Synapse
+    </title>
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js">
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: &#39;Space Grotesk&#39;, sans-serif; }
+
+    body &gt; canvas {
+      position: fixed !important; top: 0 !important; left: 0 !important;
+      width: 100vw !important; height: 100vh !important; z-index: 0 !important; pointer-events: none;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,135,0,0.3); border-radius: 2px; }
+
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes shimmer { 0% { background-position: -468px 0; } 100% { background-position: 468px 0; } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse-badge { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    .loading-spinner { animation: spin 1s linear infinite; }
+    .skeleton {
+      background: linear-gradient(to right, rgba(255,255,255,0.03) 8%, rgba(255,255,255,0.07) 18%, rgba(255,255,255,0.03) 33%);
+      background-size: 800px 104px;
+      animation: shimmer 1.5s linear infinite forwards;
+    }
+
+    #app { position: fixed; inset: 0; z-index: 1; display: flex; flex-direction: column; pointer-events: none; }
+    #app &gt; * { pointer-events: auto; }
+
+    #top-bar {
+      position: absolute; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 18px 24px; z-index: 10; pointer-events: none;
+    }
+    #clock-display {
+      font-family: &#39;DM Mono&#39;, monospace;
+      font-size: 13px;
+      color: rgba(255,255,255,0.55);
+      display: flex; align-items: center; gap: 12px;
+      letter-spacing: 0.05em;
+      pointer-events: auto;
+    }
+    #clock-display .time-main { color: rgba(255,255,255,0.85); font-size: 14px; }
+    #clock-display .time-sec { color: #ff8700; }
+    #clock-display .divider { opacity: 0.3; }
+
+    #sidebar {
+      position: absolute; left: 20px; top: 50%;
+      transform: translateY(-50%);
+      width: 180px; z-index: 10;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+
+    .sidebar-section-header {
+      padding: 6px 12px 4px;
+      font-size: 10px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.25);
+    }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 14px; border-radius: 10px;
+      font-size: 13px; font-weight: 500;
+      color: rgba(255,255,255,0.55);
+      cursor: pointer; transition: all 0.18s ease;
+      border: 1px solid transparent;
+      position: relative;
+      background: transparent;
+    }
+    .nav-item:hover {
+      color: rgba(255,255,255,0.9);
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.08);
+    }
+    .nav-item.active {
+      color: white;
+      background: rgba(255,135,0,0.12);
+      border-color: rgba(255,135,0,0.25);
+    }
+    .nav-item.active svg { color: #ff8700; }
+
+    .nav-item-icon { width: 16px; height: 16px; flex-shrink: 0; }
+    .nav-item-label { flex: 1; }
+
+    .nav-badge {
+      font-size: 9px; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      font-family: &#39;DM Mono&#39;, monospace;
+    }
+    .badge-updated { background: rgba(255,135,0,0.2); color: #ff8700; }
+    .badge-fixed { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .badge-soon { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.35); }
+    .badge-online { background: rgba(34,197,94,0.12); color: #4ade80; animation: pulse-badge 2.5s infinite; }
+
+    #friends-modal {
+      display: none; position: fixed; inset: 0; z-index: 250;
+    }
+    .friend-code-box {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,135,0,0.08); border: 1px solid rgba(255,135,0,0.25);
+      border-radius: 10px; padding: 10px 14px; margin-bottom: 4px;
+    }
+    .friend-code-box .code-text {
+      flex: 1; font-family: &#39;DM Mono&#39;, monospace; font-size: 15px; font-weight: 600;
+      color: #ff8700; letter-spacing: 0.08em;
+    }
+    .copy-code-btn {
+      width: 30px; height: 30px; border-radius: 7px;
+      background: rgba(255,135,0,0.15); border: 1px solid rgba(255,135,0,0.3);
+      color: #ff8700; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+    }
+    .copy-code-btn:hover { background: rgba(255,135,0,0.25); }
+    .add-friend-row { display: flex; gap: 8px; }
+    .add-friend-row input {
+      flex: 1; height: 40px; padding: 0 14px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; color: white; font-size: 13px; outline: none;
+      font-family: &#39;DM Mono&#39;, monospace; letter-spacing: 0.05em;
+      transition: border-color 0.15s;
+    }
+    .add-friend-row input:focus { border-color: rgba(255,135,0,0.5); }
+    .add-friend-row button {
+      height: 40px; padding: 0 16px; border-radius: 10px;
+      background: #ff8700; color: white; font-size: 12px; font-weight: 700;
+      border: none; cursor: pointer; white-space: nowrap;
+      font-family: &#39;Space Grotesk&#39;, sans-serif; transition: background 0.15s;
+    }
+    .add-friend-row button:hover { background: #e87900; }
+    .add-friend-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #friends-list-wrap {
+      max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+    }
+    .friend-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    }
+    .friend-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg, #ff8700, #ff3b00);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 700; font-size: 13px; flex-shrink: 0;
+    }
+    .friend-row-info { flex: 1; min-width: 0; }
+    .friend-row-code {
+      font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.85);
+      font-family: &#39;DM Mono&#39;, monospace; letter-spacing: 0.05em;
+    }
+    .friend-row-added { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+    .remove-friend-btn {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
+      color: rgba(239,68,68,0.8); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+    }
+    .remove-friend-btn:hover { background: rgba(239,68,68,0.2); }
+    .friends-empty {
+      text-align: center; color: rgba(255,255,255,0.2); font-size: 12px; padding: 24px 0;
+    }
+    .friends-section-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.3); margin: 4px 0 8px;
+    }
+
+    #hero {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center; pointer-events: none; user-select: none;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    #logo-wrap { display: flex; align-items: center; gap: 14px; }
+    #logo-img { width: 52px; height: 52px; object-fit: contain; }
+    #logo-text {
+      font-size: clamp(38px, 5vw, 58px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.45) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    #hero-sub {
+      font-size: 13px; color: rgba(255,255,255,0.35);
+      letter-spacing: 0.02em; font-weight: 400;
+    }
+
+
+    #user-pill {
+      position: absolute; top: 18px; right: 24px;
+      display: flex; align-items: center; gap: 8px;
+      z-index: 10;
+    }
+    .user-btn {
+      height: 34px; padding: 0 14px;
+      border-radius: 8px; font-size: 11px;
+      font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; cursor: pointer;
+      transition: all 0.18s ease;
+      border: 1px solid; display: flex; align-items: center; gap: 6px;
+      font-family: &#39;Space Grotesk&#39;, sans-serif;
+    }
+    .btn-signin {
+      background: rgba(255,135,0,0.9);
+      border-color: rgba(255,135,0,0.4);
+      color: white;
+    }
+    .btn-signin:hover { background: #e87900; }
+    .btn-signout {
+      background: rgba(239,68,68,0.12);
+      border-color: rgba(239,68,68,0.3);
+      color: rgba(239,68,68,0.8);
+    }
+    .btn-signout:hover { background: rgba(239,68,68,0.2); }
+    .user-stats {
+      height: 34px; padding: 0 12px;
+      border-radius: 8px; font-size: 11px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      display: flex; flex-direction: column; justify-content: center;
+      line-height: 1.2;
+    }
+    .user-stats .lvl { color: rgba(255,255,255,0.4); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
+    .user-stats .time { color: white; font-size: 12px; font-weight: 600; font-family: &#39;DM Mono&#39;, monospace; }
+
+    #game-panel {
+      position: absolute; top: 0; left: 0; bottom: 0;
+      width: 360px; z-index: 20;
+      background: rgba(10,8,5,0.85);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid rgba(255,255,255,0.07);
+      transform: translateX(-100%);
+      transition: transform 0.35s cubic-bezier(0.34,1.22,0.64,1);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #game-panel.open { transform: translateX(0); }
+
+    #game-panel-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; gap: 12px;
+    }
+    #panel-close {
+      margin-left: auto; width: 28px; height: 28px;
+      border-radius: 6px; background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: rgba(255,255,255,0.5);
+      transition: all 0.15s;
+    }
+    #panel-close:hover { background: rgba(255,255,255,0.12); color: white; }
+    #panel-close svg { width: 14px; height: 14px; }
+
+    #panel-search-wrap {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      position: relative;
+    }
+    #panel-search {
+      width: 100%; height: 36px; border-radius: 8px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      color: white; font-size: 12px; padding: 0 12px 0 34px;
+      outline: none; font-family: &#39;Space Grotesk&#39;, sans-serif;
+      transition: border-color 0.15s;
+    }
+    #panel-search:focus { border-color: rgba(255,135,0,0.5); }
+    #panel-search::placeholder { color: rgba(255,255,255,0.25); }
+    #panel-search-icon {
+      position: absolute; left: 28px; top: 50%; transform: translateY(-50%);
+      color: rgba(255,255,255,0.3); width: 14px; height: 14px;
+    }
+
+    #category-pills {
+      padding: 10px 16px; display: flex; gap: 6px; overflow-x: auto;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      scrollbar-width: none;
+    }
+    #category-pills::-webkit-scrollbar { display: none; }
+    .cat-pill {
+      height: 26px; padding: 0 12px; border-radius: 13px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+      cursor: pointer; transition: all 0.15s;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.4); flex-shrink: 0;
+    }
+    .cat-pill.active {
+      background: rgba(255,135,0,0.15); border-color: rgba(255,135,0,0.35);
+      color: #ff8700;
+    }
+
+    #game-list { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+
+    .game-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 10px; border-radius: 10px;
+      cursor: pointer; transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+    .game-row:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.07);
+    }
+    .game-thumb {
+      width: 44px; height: 44px; border-radius: 10px;
+      object-fit: cover; flex-shrink: 0;
+      background: rgba(255,255,255,0.05);
+    }
+    .game-row-info { flex: 1; min-width: 0; }
+    .game-row-title {
+      font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .game-row-sub { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+    .game-row-badge {
+      font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0;
+      font-family: &#39;DM Mono&#39;, monospace;
+    }
+    .badge-pro { background: rgba(255,135,0,0.2); color: #ff8700; border: 1px solid rgba(255,135,0,0.3); }
+
+    .fav-star-btn {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; cursor: pointer; transition: all 0.15s;
+      background: transparent; border: 1px solid transparent;
+      color: rgba(255,255,255,0.25);
+    }
+    .fav-star-btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); }
+    .fav-star-btn.is-fav { color: #ff8700; }
+    .fav-star-btn.is-fav svg { fill: #ff8700; }
+    .fav-star-btn svg { width: 15px; height: 15px; pointer-events: none; }
+
+    .game-list-section-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.25); padding: 8px 10px 4px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .game-list-section-label svg { width: 11px; height: 11px; color: #ff8700; }
+
+    #game-modal {
+      display: none; position: fixed; inset: 0; z-index: 100;
+    }
+    #modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
+    #modal-box {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: #0e0b07; border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 24px;
+    }
+    @media (min-width: 768px) {
+      #modal-box {
+        top: 50%; left: 50%; bottom: auto; right: auto;
+        width: 480px; transform: translate(-50%, -50%);
+        border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);
+        animation: fadeIn 0.2s ease;
+      }
+    }
+    #modal-content { display: flex; flex-direction: column; gap: 16px; }
+
+    #login-modal {
+      display: none; position: fixed; inset: 0; z-index: 200;
+    }
+    .modal-backdrop2 { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); }
+    .login-box {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #0e0b07; width: 90%; max-width: 380px;
+      padding: 32px; border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .login-label {
+      display: block; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.3); margin-bottom: 6px;
+    }
+    .login-input {
+      width: 100%; height: 42px; padding: 0 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; color: white; font-size: 13px;
+      outline: none; transition: border-color 0.15s;
+      font-family: &#39;Space Grotesk&#39;, sans-serif;
+    }
+    .login-input:focus { border-color: rgba(255,135,0,0.5); }
+    .login-input option { background: #0e0b07; }
+
+    #queue-modal {
+      display: none; position: fixed; inset: 0; z-index: 300;
+    }
+
+    #recent-strip {
+      padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: none;
+    }
+    #recent-strip h3 {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.12em; color: rgba(255,255,255,0.25);
+      margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+    }
+    #recent-thumbs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+    #recent-thumbs::-webkit-scrollbar { display: none; }
+    .recent-thumb-item {
+      flex-shrink: 0; width: 64px; cursor: pointer; text-align: center;
+    }
+    .recent-thumb-item img {
+      width: 56px; height: 56px; border-radius: 12px; object-fit: cover;
+      border: 1.5px solid rgba(255,255,255,0.08); transition: border-color 0.15s;
+    }
+    .recent-thumb-item:hover img { border-color: rgba(255,135,0,0.5); }
+    .recent-thumb-item .r-label {
+      font-size: 10px; color: rgba(255,255,255,0.35);
+      margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    #server-nav-wrap {
+      padding: 8px 12px 4px;
+    }
+    .server-select-mini {
+      width: 100%; height: 30px; padding: 0 10px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 7px; color: rgba(255,255,255,0.5); font-size: 11px;
+      outline: none; cursor: pointer; font-family: &#39;Space Grotesk&#39;, sans-serif;
+    }
+    .server-select-mini option { background: #0e0b07; }
+
+    #panel-mask {
+      display: none; position: absolute; inset: 0; z-index: 19;
+    }
+    #panel-mask.visible { display: block; }
+    </style>
+    <script src="https://pl29046809.effectivecpmnetwork.com/14/33/1c/14331ca261ae4e4ad2cabdbede9fb119.js">
+    </script>
+    <script src="https://pl29046809.effectivecpmnetwork.com/14/33/1c/14331ca261ae4e4ad2cabdbede9fb119.js">
+    </script>
+  </head>
+  <body oncontextmenu="return false;">
+    <div id="app">
+      <div id="user-pill">
+      </div>
+      <nav id="sidebar">
+        <div class="nav-item active" onclick="App.openGamePanel()">
+          <i class="nav-item-icon" data-lucide="gamepad-2"></i>
+          <span class="nav-item-label">          Play
+</span>
+        </div>
+        <div class="nav-item" onclick="App.openFriendsModal()" id="nav-friends">
+          <i class="nav-item-icon" data-lucide="users"></i>
+          <span class="nav-item-label">          Friends
+</span>
+        </div>
+      </nav>
+      <div id="hero">
+        <div id="logo-wrap">
+          <img id="logo-img" src="run-site/images/favicon.png" onerror="this.style.display=&#39;none&#39;" alt="Synapse" />
+          <div id="logo-text">
+            SYNAPSE
+          </div>
+        </div>
+        <div id="hero-sub">
+          join the discord server for link drops!
+        </div>
+      </div>
+      <div id="panel-mask" onclick="App.closeGamePanel()">
+      </div>
+      <div id="game-panel">
+        <div id="game-panel-header">
+          <i data-lucide="gamepad-2" style="width:16px;height:16px;color:#ff8700;"></i>
+          <span style="font-size:14px;font-weight:700;color:white;">          Games
+</span>
+          <div id="server-nav-wrap" style="margin-left:auto;padding:0;">
+            <select id="nav-server-select" class="server-select-mini" onchange="App.handleServerChange(this.value)">
+              <option value="21">
+                S. America
+              </option>
+              <option value="22">
+                US West
+              </option>
+              <option value="23" selected="">
+                US East
+              </option>
+              <option value="3">
+                Asia
+              </option>
+              <option value="4">
+                Europe
+              </option>
+            </select>
+          </div>
+          <div id="panel-close" onclick="App.closeGamePanel()">
+            <i data-lucide="x"></i>
+          </div>
+        </div>
+        <div id="recent-strip">
+          <h3>
+            <i data-lucide="history" style="width:11px;height:11px;"></i>
+            Recently Played
+          </h3>
+          <div id="recent-thumbs">
+          </div>
+        </div>
+        <div id="panel-search-wrap">
+          <i data-lucide="search" id="panel-search-icon"></i>
+          <input type="text" id="panel-search" placeholder="Search games..." oninput="App.handleSearch(this.value)" />
+        </div>
+        <div id="category-pills">
+        </div>
+        <div id="game-list">
+          <div id="game-list-inner" style="display:flex;flex-direction:column;gap:4px;">
+          </div>
+        </div>
+      </div>
+      <div id="game-modal">
+        <div id="modal-backdrop" onclick="App.closeModal()">
+        </div>
+        <div id="modal-box">
+          <div id="modal-content">
+          </div>
+        </div>
+      </div>
+      <div id="login-modal">
+        <div class="modal-backdrop2" onclick="App.closeLoginModal()">
+        </div>
+        <div class="login-box">
+          <h2 style="font-size:20px;font-weight:700;color:white;margin-bottom:24px;">
+            Sign In
+          </h2>
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div>
+              <label class="login-label">
+                Email Address
+              </label>
+              <input type="email" id="login-email" class="login-input" placeholder="name@example.com" />
+            </div>
+            <div>
+              <label class="login-label">
+                Password
+              </label>
+              <input type="password" id="login-password" class="login-input" placeholder="••••••••" />
+            </div>
+            <div>
+              <label class="login-label">
+                Region Server
+              </label>
+              <select id="server-select" class="login-input" style="cursor:pointer;">
+                <option value="21">
+                  South America
+                </option>
+                <option value="22">
+                  US West
+                </option>
+                <option value="23" selected="">
+                  US East
+                </option>
+                <option value="3">
+                  Asia
+                </option>
+                <option value="4">
+                  Europe
+                </option>
+              </select>
+            </div>
+            <button id="login-submit-btn" onclick="App.handleLogin()" class="user-btn btn-signin" style="width:100%;height:44px;border-radius:12px;font-size:12px;margin-top:4px;justify-content:center;">
+              Sign In
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="friends-modal">
+        <div class="modal-backdrop2" onclick="App.closeFriendsModal()">
+        </div>
+        <div class="login-box" style="max-width:400px;">
+          <div style="display:flex;align-items:center;margin-bottom:20px;">
+            <h2 style="font-size:20px;font-weight:700;color:white;">
+              Friends
+            </h2>
+            <div onclick="App.closeFriendsModal()" style="margin-left:auto;padding:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;cursor:pointer;color:rgba(255,255,255,0.5);display:flex;">
+              <i data-lucide="x" style="width:14px;height:14px;"></i>
+            </div>
+          </div>
+          <div class="friends-section-label">
+            Your Friend Code
+          </div>
+          <div class="friend-code-box">
+            <span class="code-text" id="my-friend-code">            ------
+</span>
+            <div class="copy-code-btn" onclick="App.copyFriendCode(event)">
+              <i data-lucide="copy" style="width:14px;height:14px;"></i>
+            </div>
+          </div>
+          <div class="friends-section-label" style="margin-top:16px;">
+            Add a Friend
+          </div>
+          <div class="add-friend-row">
+            <input type="text" id="add-friend-input" placeholder="Enter friend code" maxlength="8" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key===&#39;Enter&#39;) App.addFriend();" />
+            <button id="add-friend-btn" onclick="App.addFriend()">
+              Add
+            </button>
+          </div>
+          <div class="friends-section-label" style="margin-top:18px;">
+            Your Friends
+          </div>
+          <div id="friends-list-wrap">
+          </div>
+        </div>
+      </div>
+      <div id="queue-modal">
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);">
+        </div>
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#0e0b07;width:90%;max-width:360px;padding:36px 28px;border-radius:20px;border:1px solid rgba(255,255,255,0.08);text-align:center;">
+          <div class="loading-spinner" style="width:44px;height:44px;border:3px solid rgba(255,135,0,0.2);border-top-color:#ff8700;border-radius:50%;margin:0 auto 20px;">
+          </div>
+          <h2 style="font-size:20px;font-weight:700;color:white;margin-bottom:6px;">
+            In Queue
+          </h2>
+          <p style="font-size:13px;color:rgba(255,255,255,0.35);margin-bottom:24px;">
+            Waiting for an available cloud device...
+          </p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px;">
+            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:14px;">
+              <span style="display:block;font-size:9px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">              Position
+</span>
+              <span id="queue-pos" style="font-size:22px;font-weight:700;color:white;font-family:&#39;DM Mono&#39;,monospace;">              --
+</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:14px;">
+              <span style="display:block;font-size:9px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">              Est. Time
+</span>
+              <span id="queue-time" style="font-size:22px;font-weight:700;color:white;font-family:&#39;DM Mono&#39;,monospace;">              --
+</span>
+            </div>
+          </div>
+          <button onclick="App.cancelQueue()" style="width:100%;height:42px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);font-size:13px;font-weight:600;cursor:pointer;font-family:&#39;Space Grotesk&#39;,sans-serif;">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+    <script>
+      const API_LIST = [&#34;https://api.cloudmoon.cloudbatata.com&#34;,&#34;https://api.prod.cloudmoonapp.com&#34;,&#34;https://api.prod.geometry.today&#34;];
+const BACKUP_API_LIST = [&#34;https://hrz5zfjq02.execute-api.us-east-1.amazonaws.com&#34;,&#34;https://api.prod.viewoncloud.com&#34;];
+
+window.App = {
+  currentApiHost: null, apiHostPromise: null,
+  token: localStorage.getItem(&#34;cm_auth_token&#34;),
+  rawGames: [], filteredGames: [], categories: [],
+  activeCategory: &#34;all&#34;, searchQuery: &#39;&#39;,
+  isLoading: false, userLevel: 0, timeLeft: &#39;&#39;,
+  lastRenderedKey: &#39;&#39;, statsInterval: null,
+  queueInterval: null, currentPkg: null, searchTimer: null,
+  recentGames: [], panelOpen: false,
+
+  async init() {
+    await this.probeApi();
+    this.renderUserArea();
+    await this.initPortal();
+  },
+
+  async probeApi() {
+    if (this.currentApiHost) return this.currentApiHost;
+    if (this.apiHostPromise) return this.apiHostPromise;
+    this.apiHostPromise = (async () =&gt; {
+      let host = await this.findAvailableApiFast(API_LIST);
+      if (!host) host = await this.findAvailableApiFast(BACKUP_API_LIST);
+      if (host) { this.currentApiHost = host; return host; }
+      return null;
+    })();
+    return this.apiHostPromise;
+  },
+
+  async findAvailableApiFast(list) {
+    const controllers = list.map(() =&gt; new AbortController());
+    return new Promise(resolve =&gt; {
+      let failed = 0, done = false;
+      list.forEach((url, i) =&gt; {
+        const t = setTimeout(() =&gt; controllers[i].abort(), 3000);
+        fetch(url + &#34;/_ping&#34;, { signal: controllers[i].signal })
+          .then(r =&gt; { clearTimeout(t); if (r.ok &amp;&amp; !done) { done = true; controllers.forEach((c,j) =&gt; { if(j!==i) c.abort(); }); resolve(url); } else throw new Error(); })
+          .catch(() =&gt; { clearTimeout(t); if (++failed === list.length &amp;&amp; !done) resolve(null); });
+      });
+    });
+  },
+
+  async customFetch(path, opts = {}) {
+    const host = await this.probeApi();
+    if (!host) throw new Error(&#34;API unavailable&#34;);
+    const url = new URL(host + (path.startsWith(&#39;/&#39;) ? path : &#39;/&#39; + path));
+    url.searchParams.set(&#34;device_type&#34;, &#34;web&#34;);
+    url.searchParams.set(&#34;query_uuid&#34;, this.generateUUID());
+    url.searchParams.set(&#34;site&#34;, &#34;cm&#34;);
+    url.searchParams.set(&#34;device_id&#34;, this.getDeviceId());
+    const headers = new Headers(opts.headers || {});
+    const tok = localStorage.getItem(&#34;cm_auth_token&#34;);
+    if (tok) headers.set(&#34;X-User-Token&#34;, tok);
+    const lang = (localStorage.getItem(&#34;cm_lang&#34;) || navigator.language.split(&#39;-&#39;)[0] || &#39;en&#39;);
+    headers.set(&#34;X-User-Language&#34;, lang);
+    const loc = (navigator.language.split(&#39;-&#39;)[1] || navigator.language.split(&#39;-&#39;)[0]).toUpperCase();
+    headers.set(&#34;X-User-Locale&#34;, loc);
+    if (!headers.has(&#34;Content-Type&#34;)) headers.set(&#34;Content-Type&#34;, &#34;application/json&#34;);
+    try {
+      const res = await fetch(url.toString(), { ...opts, headers });
+      const clone = res.clone();
+      try { const j = await clone.json(); if (j &amp;&amp; String(j.code) === &#34;40001&#34;) { this.signOut(false); throw new Error(&#34;Unauthorized&#34;); } } catch(e) {}
+      if (!res.ok) throw new Error(&#34;HTTP &#34; + res.status);
+      return await res.json();
+    } catch(e) { this.currentApiHost = null; this.apiHostPromise = null; throw e; }
+  },
+
+  generateUUID() {
+    if (typeof crypto !== &#34;undefined&#34; &amp;&amp; crypto.randomUUID) return crypto.randomUUID();
+    return &#34;xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx&#34;.replace(/[xy]/g, c =&gt; {
+      const r = Math.random() * 16 | 0;
+      return (c === &#39;x&#39; ? r : r &amp; 0x3 | 0x8).toString(16);
+    });
+  },
+
+  getDeviceId() {
+    let id = localStorage.getItem(&#34;cm_device_id&#34;);
+    if (!id) { id = this.generateUUID(); localStorage.setItem(&#34;cm_device_id&#34;, id); }
+    return id;
+  },
+
+  renderUserArea() {
+    const tok = this.token;
+    const stats = tok
+      ? `&lt;div class=&#34;user-stats&#34;&gt;&lt;span class=&#34;lvl&#34;&gt;LVL ${this.userLevel}&lt;/span&gt;&lt;span class=&#34;time&#34;&gt;${this.timeLeft || &#39;--:--&#39;}&lt;/span&gt;&lt;/div&gt;`
+      : &#39;&#39;;
+    const btn = tok
+      ? `&lt;button onclick=&#34;App.signOut()&#34; class=&#34;user-btn btn-signout&#34;&gt;&lt;i data-lucide=&#34;power&#34; style=&#34;width:13px;height:13px;&#34;&gt;&lt;/i&gt; Sign Out&lt;/button&gt;`
+      : `&lt;button onclick=&#34;App.showLogin()&#34; class=&#34;user-btn btn-signin&#34;&gt;Sign In&lt;/button&gt;`;
+
+    const up = document.getElementById(&#39;user-pill&#39;);
+    if (up) { up.innerHTML = stats + btn; lucide.createIcons(); }
+  },
+
+  async initPortal() {
+    try {
+      const host = await this.probeApi();
+      if (host) {
+        if (!localStorage.getItem(&#34;selectedServer&#34;)) localStorage.setItem(&#34;selectedServer&#34;, &#39;23&#39;);
+        if (this.token) {
+          await Promise.all([this.loadUserLevel(), this.loadRecentGames()]);
+          this.startStatsPolling();
+        }
+        await Promise.all([this.loadCategories(), this.loadGames()]);
+        this.filterEmptyCategories();
+        this.renderCategories();
+        this.applyFilter();
+      } else {
+        document.getElementById(&#39;game-list-inner&#39;).innerHTML = &#39;&lt;div style=&#34;text-align:center;color:rgba(255,80,80,0.7);padding:30px 0;font-size:13px;&#34;&gt;Unable to connect to server.&lt;/div&gt;&#39;;
+      }
+    } catch(e) { console.error(&#34;Init Error:&#34;, e); }
+  },
+
+  async loadUserLevel() {
+    try {
+      const r = await this.customFetch(&#34;/phone/list&#34;);
+      if (r.code === 0 &amp;&amp; r.data?.list?.length &gt; 0) {
+        this.userLevel = Math.max(...r.data.list.map(x =&gt; x.level || 0));
+        this.timeLeft = r.data.list[0].time_left || &#34;0h 0m&#34;;
+        this.renderUserArea();
+      }
+    } catch(e) { console.error(e); }
+  },
+
+  async loadCategories() {
+    try {
+      const r = await this.customFetch(&#34;/game/category&#34;);
+      if (r.code === 0 &amp;&amp; r.data?.list?.length &gt; 0) this.categories = r.data.list;
+    } catch(e) { console.error(e); }
+  },
+
+  async loadGames() {
+    this.isLoading = true;
+    this.renderListSkeleton();
+    try {
+      const r = await this.customFetch(this.token ? &#34;/game/list&#34; : &#34;/game/guest_list&#34;);
+      if (r.code === 0 &amp;&amp; r.data?.list) {
+        this.rawGames = r.data.list.map(g =&gt; ({
+          id: g.package_name, title: g.title, icon: g.icon_url,
+          status: g.status, categories: g.categories || [],
+          isHigh: g.is_high || false, unlimit: g.unlimit || false
+        }));
+      }
+    } catch(e) {
+      document.getElementById(&#39;game-list-inner&#39;).innerHTML = &#39;&lt;div style=&#34;text-align:center;color:rgba(255,80,80,0.7);padding:30px 0;font-size:13px;&#34;&gt;Failed to load games.&lt;/div&gt;&#39;;
+    } finally {
+      this.isLoading = false;
+      this.applyFilter();
+    }
+  },
+
+  renderListSkeleton() {
+    const inner = document.getElementById(&#39;game-list-inner&#39;);
+    if (!inner) return;
+    inner.innerHTML = Array(8).fill(0).map(() =&gt;
+      `&lt;div class=&#34;game-row&#34; style=&#34;opacity:0.5;&#34;&gt;
+        &lt;div class=&#34;skeleton&#34; style=&#34;width:44px;height:44px;border-radius:10px;flex-shrink:0;&#34;&gt;&lt;/div&gt;
+        &lt;div style=&#34;flex:1;&#34;&gt;
+          &lt;div class=&#34;skeleton&#34; style=&#34;height:12px;border-radius:4px;margin-bottom:6px;width:70%;&#34;&gt;&lt;/div&gt;
+          &lt;div class=&#34;skeleton&#34; style=&#34;height:10px;border-radius:4px;width:40%;&#34;&gt;&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;`
+    ).join(&#39;&#39;);
+  },
+
+  filterEmptyCategories() {
+    if (!this.categories.length || !this.rawGames.length) return;
+    const used = new Set();
+    this.rawGames.forEach(g =&gt; (g.categories || []).forEach(c =&gt; used.add(String(c))));
+    this.categories = this.categories.filter(c =&gt; c.key === &#34;all&#34; || used.has(String(c.key)));
+    this.categories.sort((a,b) =&gt; a.key === &#34;all&#34; ? -1 : b.key === &#34;all&#34; ? 1 : 0);
+  },
+
+  renderCategories() {
+    const bar = document.getElementById(&#39;category-pills&#39;);
+    if (!bar || !this.categories.length) return;
+    bar.innerHTML = this.categories.map(c =&gt;
+      `&lt;button onclick=&#34;App.filterByCategory(&#39;${c.key}&#39;)&#34; class=&#34;cat-pill${this.activeCategory === String(c.key) ? &#39; active&#39; : &#39;&#39;}&#34; data-cat=&#34;${c.key}&#34;&gt;${c.name}&lt;/button&gt;`
+    ).join(&#39;&#39;);
+  },
+
+  filterByCategory(key) {
+    this.activeCategory = key;
+    document.querySelectorAll(&#39;.cat-pill&#39;).forEach(b =&gt;
+      b.classList.toggle(&#39;active&#39;, b.getAttribute(&#39;data-cat&#39;) === key)
+    );
+    this.applyFilter();
+  },
+
+  handleSearch(val) {
+    this.searchQuery = val.toLowerCase();
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() =&gt; this.applyFilter(), 120);
+  },
+
+  getFavorites() {
+    try { return JSON.parse(localStorage.getItem(&#34;cm_favorite_games&#34;) || &#34;[]&#34;); }
+    catch(e) { return []; }
+  },
+
+  saveFavorites(list) {
+    localStorage.setItem(&#34;cm_favorite_games&#34;, JSON.stringify(list));
+  },
+
+  isFavorite(id) {
+    return this.getFavorites().includes(id);
+  },
+
+  toggleFavorite(id, evt) {
+    if (evt) evt.stopPropagation();
+    let favs = this.getFavorites();
+    if (favs.includes(id)) favs = favs.filter(f =&gt; f !== id);
+    else favs.unshift(id);
+    this.saveFavorites(favs);
+    this.lastRenderedKey = &#39;&#39;;
+    this.applyFilter();
+  },
+
+  applyFilter() {
+    const favs = this.getFavorites();
+    this.filteredGames = this.rawGames.filter(g =&gt; {
+      if (g.status !== 1) return false;
+      if (g.isHigh &amp;&amp; this.userLevel !== 3) return false;
+      const catMatch = this.activeCategory === &#34;all&#34; || g.categories.includes(this.activeCategory) || g.categories.includes(parseInt(this.activeCategory));
+      const searchMatch = g.title.toLowerCase().includes(this.searchQuery);
+      return catMatch &amp;&amp; searchMatch;
+    }).sort((a, b) =&gt; {
+      const aFav = favs.includes(a.id), bFav = favs.includes(b.id);
+      if (aFav &amp;&amp; !bFav) return -1;
+      if (!aFav &amp;&amp; bFav) return 1;
+      if (aFav &amp;&amp; bFav) return favs.indexOf(a.id) - favs.indexOf(b.id);
+      return 0;
+    });
+    this.renderList();
+  },
+
+  renderList() {
+    const inner = document.getElementById(&#39;game-list-inner&#39;);
+    if (!inner) return;
+    const favs = this.getFavorites();
+    const key = this.filteredGames.map(g =&gt; g.id + (favs.includes(g.id) ? &#39;*&#39; : &#39;&#39;)).join(&#39;,&#39;);
+    if (this.lastRenderedKey === key) return;
+    this.lastRenderedKey = key;
+    if (!this.filteredGames.length) {
+      inner.innerHTML = &#39;&lt;div style=&#34;text-align:center;color:rgba(255,255,255,0.2);padding:40px 0;font-size:13px;&#34;&gt;No games found.&lt;/div&gt;&#39;;
+      return;
+    }
+    const favCount = this.filteredGames.filter(g =&gt; favs.includes(g.id)).length;
+    let html = &#39;&#39;;
+    if (favCount &gt; 0) {
+      html += `&lt;div class=&#34;game-list-section-label&#34;&gt;&lt;i data-lucide=&#34;star&#34;&gt;&lt;/i&gt; Favorites&lt;/div&gt;`;
+      html += this.filteredGames.slice(0, favCount).map(g =&gt; this.renderGameRow(g, favs)).join(&#39;&#39;);
+      html += `&lt;div class=&#34;game-list-section-label&#34;&gt;All Games&lt;/div&gt;`;
+      html += this.filteredGames.slice(favCount).map(g =&gt; this.renderGameRow(g, favs)).join(&#39;&#39;);
+    } else {
+      html = this.filteredGames.map(g =&gt; this.renderGameRow(g, favs)).join(&#39;&#39;);
+    }
+    inner.innerHTML = html;
+    lucide.createIcons();
+  },
+
+  renderGameRow(g, favs) {
+    const fav = favs.includes(g.id);
+    return `&lt;div class=&#34;game-row&#34; onclick=&#34;App.showGameDetails(&#39;${g.id}&#39;)&#34;&gt;
+        &lt;img src=&#34;${g.icon}&#34; class=&#34;game-thumb&#34; onerror=&#34;this.src=&#39;https://cloudmoonapp.com/favicon.ico&#39;&#34;&gt;
+        &lt;div class=&#34;game-row-info&#34;&gt;
+          &lt;div class=&#34;game-row-title&#34;&gt;${g.title}&lt;/div&gt;
+          &lt;div class=&#34;game-row-sub&#34;&gt;Cloud Play&lt;/div&gt;
+        &lt;/div&gt;
+        ${g.isHigh ? &#39;&lt;span class=&#34;game-row-badge badge-pro&#34;&gt;Pro&lt;/span&gt;&#39; : &#39;&#39;}
+        &lt;div class=&#34;fav-star-btn${fav ? &#39; is-fav&#39; : &#39;&#39;}&#34; onclick=&#34;App.toggleFavorite(&#39;${g.id}&#39;, event)&#34; title=&#34;${fav ? &#39;Remove favorite&#39; : &#39;Add favorite&#39;}&#34;&gt;
+          &lt;i data-lucide=&#34;star&#34;&gt;&lt;/i&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;`;
+  },
+
+  async loadRecentGames() {
+    if (!this.token) return;
+    try {
+      const sid = parseInt(localStorage.getItem(&#34;selectedServer&#34;) || &#39;23&#39;);
+      const region = [21,22,23].includes(sid) ? &#39;us&#39; : sid === 4 ? &#39;eu&#39; : &#39;sgp&#39;;
+      const r = await this.customFetch(&#34;/game/record?select_server=&#34; + region);
+      if (r.code === 0 &amp;&amp; r.data?.list?.length &gt; 0) {
+        this.recentGames = r.data.list.map(g =&gt; ({ id: g.package_name, title: g.title, icon: g.icon_url, is_high: g.is_high || false, status: g.status }));
+        this.renderRecentGames();
+      }
+    } catch(e) { console.error(e); }
+  },
+
+  renderRecentGames() {
+    const strip = document.getElementById(&#39;recent-strip&#39;);
+    const thumbs = document.getElementById(&#39;recent-thumbs&#39;);
+    if (!strip || !thumbs || !this.recentGames.length) { if (strip) strip.style.display = &#39;none&#39;; return; }
+    strip.style.display = &#39;block&#39;;
+    thumbs.innerHTML = this.recentGames.slice(0,6).map(g =&gt;
+      `&lt;div class=&#34;recent-thumb-item&#34; onclick=&#34;App.showGameDetails(&#39;${g.id}&#39;)&#34;&gt;
+        &lt;img src=&#34;${g.icon}&#34; onerror=&#34;this.src=&#39;https://cloudmoonapp.com/favicon.ico&#39;&#34;&gt;
+        &lt;div class=&#34;r-label&#34;&gt;${g.title}&lt;/div&gt;
+      &lt;/div&gt;`
+    ).join(&#39;&#39;);
+  },
+
+  openGamePanel() {
+    const panel = document.getElementById(&#39;game-panel&#39;);
+    const mask = document.getElementById(&#39;panel-mask&#39;);
+    panel.classList.add(&#39;open&#39;);
+    mask.classList.add(&#39;visible&#39;);
+    this.panelOpen = true;
+  },
+
+  closeGamePanel() {
+    const panel = document.getElementById(&#39;game-panel&#39;);
+    const mask = document.getElementById(&#39;panel-mask&#39;);
+    panel.classList.remove(&#39;open&#39;);
+    mask.classList.remove(&#39;visible&#39;);
+    this.panelOpen = false;
+  },
+
+  async showGameDetails(pkg) {
+    const modal = document.getElementById(&#39;game-modal&#39;);
+    const content = document.getElementById(&#39;modal-content&#39;);
+    modal.style.display = &#39;block&#39;;
+    content.innerHTML = `&lt;div style=&#34;display:flex;align-items:center;justify-content:center;padding:40px 0;gap:10px;color:rgba(255,255,255,0.3);font-size:13px;&#34;&gt;&lt;div class=&#34;loading-spinner&#34; style=&#34;width:20px;height:20px;border:2px solid rgba(255,135,0,0.3);border-top-color:#ff8700;border-radius:50%;&#34;&gt;&lt;/div&gt;Loading...&lt;/div&gt;`;
+    try {
+      const r = await this.customFetch(&#34;/game/info?pkg=&#34; + pkg);
+      if (r.code === 0 &amp;&amp; r.data) {
+        const d = r.data, i18n = d.i18n || {};
+        const title = i18n.title || d.title;
+        const icon = i18n.icon || d.icon_url;
+        const desc = (i18n.desc || &#39;&#39;).replace(/\n/g, &#39;&lt;br&gt;&#39;);
+        content.innerHTML = `
+          &lt;div style=&#34;display:flex;align-items:flex-start;gap:14px;&#34;&gt;
+            &lt;img src=&#34;${icon}&#34; style=&#34;width:72px;height:72px;border-radius:16px;object-fit:cover;border:1px solid rgba(255,255,255,0.1);&#34;&gt;
+            &lt;div style=&#34;flex:1;min-width:0;&#34;&gt;
+              &lt;h2 style=&#34;font-size:18px;font-weight:700;color:white;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;&#34;&gt;${title}&lt;/h2&gt;
+              &lt;p style=&#34;font-size:12px;color:rgba(255,255,255,0.35);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;&#34;&gt;${(i18n.categoryList||[]).join(&#39; / &#39;)}&lt;/p&gt;
+              &lt;div style=&#34;margin-top:8px;display:flex;gap:6px;&#34;&gt;
+                ${d.is_high ? &#39;&lt;span style=&#34;background:rgba(255,135,0,0.15);color:#ff8700;font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,135,0,0.3);text-transform:uppercase;letter-spacing:0.1em;&#34;&gt;PRO&lt;/span&gt;&#39; : &#39;&#39;}
+                ${d.status === 4 ? &#39;&lt;span style=&#34;background:rgba(239,68,68,0.15);color:rgba(239,68,68,0.8);font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid rgba(239,68,68,0.3);text-transform:uppercase;letter-spacing:0.1em;&#34;&gt;Maintenance&lt;/span&gt;&#39; : &#39;&#39;}
+              &lt;/div&gt;
+            &lt;/div&gt;
+            &lt;div onclick=&#34;App.toggleFavorite(&#39;${d.package_name}&#39;, event); App.showGameDetails(&#39;${d.package_name}&#39;);&#34; style=&#34;padding:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;cursor:pointer;color:${this.isFavorite(d.package_name) ? &#39;#ff8700&#39; : &#39;rgba(255,255,255,0.5)&#39;};display:flex;margin:-4px -4px 0 0;&#34;&gt;
+              &lt;i data-lucide=&#34;star&#34; style=&#34;width:14px;height:14px;${this.isFavorite(d.package_name) ? &#39;fill:#ff8700;&#39; : &#39;&#39;}&#34;&gt;&lt;/i&gt;
+            &lt;/div&gt;
+            &lt;button onclick=&#34;App.closeModal()&#34; style=&#34;padding:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;cursor:pointer;color:rgba(255,255,255,0.5);display:flex;margin:-4px -4px 0 0;&#34;&gt;
+              &lt;i data-lucide=&#34;x&#34; style=&#34;width:14px;height:14px;&#34;&gt;&lt;/i&gt;
+            &lt;/button&gt;
+          &lt;/div&gt;
+          ${i18n.screenshots?.length ? `&lt;div style=&#34;display:flex;gap:8px;overflow-x:auto;padding:2px 0;scrollbar-width:none;&#34;&gt;${i18n.screenshots.map(s =&gt; `&lt;img src=&#34;${s}&#34; style=&#34;height:120px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);flex-shrink:0;&#34;&gt;`).join(&#39;&#39;)}&lt;/div&gt;` : &#39;&#39;}
+          ${desc ? `&lt;div style=&#34;font-size:12px;color:rgba(255,255,255,0.35);line-height:1.7;max-height:100px;overflow-y:auto;&#34;&gt;${desc}&lt;/div&gt;` : &#39;&#39;}
+          &lt;button onclick=&#34;App.handlePlay(&#39;${d.package_name}&#39;, ${d.status})&#34; id=&#34;play-btn-el&#34; style=&#34;width:100%;height:48px;border-radius:12px;background:#ff8700;color:white;font-size:14px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:&#39;Space Grotesk&#39;,sans-serif;transition:background 0.15s;&#34; onmouseover=&#34;this.style.background=&#39;#e87900&#39;&#34; onmouseout=&#34;this.style.background=&#39;#ff8700&#39;&#34;&gt;
+            &lt;i data-lucide=&#34;play&#34; style=&#34;width:18px;height:18px;fill:currentColor;&#34;&gt;&lt;/i&gt;
+            Play Now
+          &lt;/button&gt;`;
+        lucide.createIcons();
+      }
+    } catch(e) { content.innerHTML = &#39;&lt;div style=&#34;text-align:center;color:rgba(255,80,80,0.7);padding:30px 0;font-size:13px;&#34;&gt;Error loading details.&lt;/div&gt;&#39;; }
+  },
+
+  closeModal() { document.getElementById(&#39;game-modal&#39;).style.display = &#39;none&#39;; },
+  showLogin() {
+    document.getElementById(&#39;login-modal&#39;).style.display = &#39;block&#39;;
+    document.getElementById(&#39;server-select&#39;).value = localStorage.getItem(&#34;selectedServer&#34;) || &#39;23&#39;;
+  },
+  closeLoginModal() { document.getElementById(&#39;login-modal&#39;).style.display = &#39;none&#39;; },
+
+  async handleLogin() {
+    const email = document.getElementById(&#39;login-email&#39;).value;
+    const pass = document.getElementById(&#39;login-password&#39;).value;
+    const srv = document.getElementById(&#39;server-select&#39;).value;
+    const btn = document.getElementById(&#39;login-submit-btn&#39;);
+    if (!email || !pass) { alert(&#34;Enter credentials&#34;); return; }
+    try {
+      btn.disabled = true;
+      btn.innerHTML = &#39;&lt;div class=&#34;loading-spinner&#34; style=&#34;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;margin:auto;&#34;&gt;&lt;/div&gt;&#39;;
+      const r = await this.customFetch(&#34;/login/pwd&#34;, { method: &#34;POST&#34;, body: JSON.stringify({ email, password: pass }) });
+      if (r.code === 0 &amp;&amp; r.data?.token) {
+        localStorage.setItem(&#34;cm_auth_token&#34;, r.data.token);
+        localStorage.setItem(&#34;selectedServer&#34;, srv);
+        location.reload();
+      } else { alert(&#34;Login failed: &#34; + (r.message || &#34;Error&#34;)); }
+    } catch(e) { alert(&#34;Error during login.&#34;); }
+    finally { btn.disabled = false; btn.innerHTML = &#34;Sign In&#34;; }
+  },
+
+  signOut(confirm_ = true) {
+    if (confirm_ &amp;&amp; !window.confirm(&#34;Logout?&#34;)) return;
+    localStorage.removeItem(&#34;cm_auth_token&#34;);
+    location.reload();
+  },
+
+  handleServerChange(val) {
+    localStorage.setItem(&#34;selectedServer&#34;, val);
+    const loginSel = document.getElementById(&#39;server-select&#39;);
+    if (loginSel) loginSel.value = val;
+    if (this.token) { this.loadUserLevel(); this.applyFilter(); }
+  },
+
+  startStatsPolling() {
+    if (this.statsInterval) return;
+    this.statsInterval = setInterval(() =&gt; {
+      if (this.token) this.loadUserLevel();
+      else { clearInterval(this.statsInterval); this.statsInterval = null; }
+    }, 30000);
+  },
+
+  async handlePlay(pkg, status) {
+    if (!this.token) { if (window.confirm(&#34;Login required. Login now?&#34;)) this.showLogin(); return; }
+    if (status === 4) { alert(&#34;Under maintenance.&#34;); return; }
+    if (!this.timeLeft || this.timeLeft === &#34;0h 0m&#34;) { alert(&#34;No time left.&#34;); return; }
+    const btn = document.getElementById(&#39;play-btn-el&#39;);
+    const orig = btn.innerHTML;
+    try {
+      btn.disabled = true;
+      btn.innerHTML = &#39;&lt;div class=&#34;loading-spinner&#34; style=&#34;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;&#34;&gt;&lt;/div&gt;&lt;span&gt;Connecting...&lt;/span&gt;&#39;;
+      const phones = await this.customFetch(&#34;/phone/list&#34;);
+      if (phones.code === 0 &amp;&amp; phones.data?.list?.length &gt; 0) {
+        const conn = await this.customFetch(&#34;/phone/connect&#34;, {
+          method: &#34;POST&#34;,
+          body: JSON.stringify({
+            android_id: phones.data.list[0].android_id,
+            game_name: pkg, screen_res: &#34;720x1280&#34;,
+            server_id: parseInt(localStorage.getItem(&#34;selectedServer&#34;) || &#39;23&#39;),
+            params: JSON.stringify({ language: &#39;en&#39;, locale: &#39;us&#39; }),
+            ad_unblock: false
+          })
+        });
+        if (conn.code === 0 &amp;&amp; conn.data) {
+          this.closeModal();
+          if (conn.data.android_instance_id) this.launchGameAction(conn.data.sid);
+          else if (conn.data.position) this.showQueue(pkg, conn.data, phones.data.list[0].android_id);
+        } else { alert(&#34;Failed: &#34; + conn.message); btn.disabled = false; btn.innerHTML = orig; }
+      } else { alert(&#34;No device available.&#34;); btn.disabled = false; btn.innerHTML = orig; }
+    } catch(e) { alert(&#34;Error.&#34;); btn.disabled = false; btn.innerHTML = orig; }
+  },
+
+  showQueue(pkg, data, androidId) {
+    this.currentPkg = pkg;
+    document.getElementById(&#39;queue-modal&#39;).style.display = &#39;block&#39;;
+    this.updateQueueUI(data);
+    if (this.queueInterval) clearInterval(this.queueInterval);
+    this.queueInterval = setInterval(async () =&gt; {
+      try {
+        const r = await this.customFetch(&#34;/phone/connect&#34;, { method: &#34;POST&#34;, body: JSON.stringify({ android_id: androidId, game_name: pkg, screen_res: &#34;720x1280&#34;, server_id: parseInt(localStorage.getItem(&#34;selectedServer&#34;) || &#39;23&#39;), params: JSON.stringify({ language:&#39;en&#39;, locale:&#39;us&#39; }), ad_unblock: false }) });
+        if (r.code === 0 &amp;&amp; r.data) {
+          if (r.data.android_instance_id) { clearInterval(this.queueInterval); this.queueInterval = null; document.getElementById(&#39;queue-modal&#39;).style.display = &#39;none&#39;; this.launchGameAction(r.data.sid); }
+          else this.updateQueueUI(r.data);
+        }
+      } catch(e) {}
+    }, 5000);
+  },
+
+  updateQueueUI(data) {
+    document.getElementById(&#39;queue-pos&#39;).textContent = data.position || &#39;--&#39;;
+    document.getElementById(&#39;queue-time&#39;).textContent = data.waiting_time ? Math.ceil(data.waiting_time / 60) + &#39;m&#39; : &#39;--&#39;;
+  },
+
+  async cancelQueue() {
+    const pkg = this.currentPkg;
+    if (this.queueInterval) { clearInterval(this.queueInterval); this.queueInterval = null; }
+    document.getElementById(&#39;queue-modal&#39;).style.display = &#39;none&#39;;
+    if (pkg) { try { await this.customFetch(&#34;/phone/disconnect&#34;, { method: &#34;POST&#34;, body: JSON.stringify({ game_name: pkg }) }); } catch(e) {} }
+  },
+
+  launchGameAction(sid) {
+    localStorage.setItem(&#34;cm_launch_data&#34;, JSON.stringify({ sid, quality: &#39;SD&#39;, timestamp: Date.now() }));
+    window.location.assign(&#34;./play-260430.svg&#34;);
+  },
+
+  getMyFriendCode() {
+    let code = localStorage.getItem(&#34;cm_friend_code&#34;);
+    if (!code) {
+      code = this.generateFriendCode();
+      localStorage.setItem(&#34;cm_friend_code&#34;, code);
+    }
+    return code;
+  },
+
+  generateFriendCode() {
+    const chars = &#34;ABCDEFGHJKLMNPQRSTUVWXYZ23456789&#34;; // no one touch ts pls it bugs out when special characters are der
+    let out = &#34;&#34;;
+    for (let i = 0; i &lt; 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
+  },
+
+  getFriends() {
+    try { return JSON.parse(localStorage.getItem(&#34;cm_friends&#34;) || &#34;[]&#34;); }
+    catch(e) { return []; }
+  },
+
+  saveFriends(list) {
+    localStorage.setItem(&#34;cm_friends&#34;, JSON.stringify(list));
+  },
+
+  openFriendsModal() {
+    if (!this.token) {
+      if (window.confirm(&#34;You need to be signed in to use friends. Sign in now?&#34;)) this.showLogin();
+      return;
+    }
+    document.getElementById(&#39;friends-modal&#39;).style.display = &#39;block&#39;;
+    document.getElementById(&#39;my-friend-code&#39;).textContent = this.getMyFriendCode();
+    const input = document.getElementById(&#39;add-friend-input&#39;);
+    if (input) input.value = &#39;&#39;;
+    this.renderFriends();
+    lucide.createIcons();
+  },
+
+  closeFriendsModal() {
+    document.getElementById(&#39;friends-modal&#39;).style.display = &#39;none&#39;;
+  },
+
+  copyFriendCode(evt) {
+    const code = this.getMyFriendCode();
+    if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() =&gt; {});
+    const btn = evt &amp;&amp; evt.currentTarget;
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = &#39;&lt;i data-lucide=&#34;check&#34; style=&#34;width:14px;height:14px;&#34;&gt;&lt;/i&gt;&#39;;
+      lucide.createIcons();
+      setTimeout(() =&gt; { btn.innerHTML = orig; lucide.createIcons(); }, 1200);
+    }
+  },
+
+  addFriend() {
+    if (!this.token) {
+      this.closeFriendsModal();
+      if (window.confirm(&#34;Sign in required. Sign in now?&#34;)) this.showLogin();
+      return;
+    }
+    const input = document.getElementById(&#39;add-friend-input&#39;);
+    const code = input.value.trim().toUpperCase();
+    if (!code) return;
+    const myCode = this.getMyFriendCode();
+    if (code === myCode) { alert(&#34;You can&#39;t add yourself.&#34;); return; }
+    const friends = this.getFriends();
+    if (friends.some(f =&gt; f.code === code)) { alert(&#34;Already friends with this code.&#34;); return; }
+    friends.unshift({ code, addedAt: Date.now() });
+    this.saveFriends(friends);
+    input.value = &#39;&#39;;
+    this.renderFriends();
+  },
+
+  removeFriend(code) {
+    if (!window.confirm(&#34;Remove this friend?&#34;)) return;
+    const friends = this.getFriends().filter(f =&gt; f.code !== code);
+    this.saveFriends(friends);
+    this.renderFriends();
+  },
+
+  renderFriends() {
+    const wrap = document.getElementById(&#39;friends-list-wrap&#39;);
+    if (!wrap) return;
+    const friends = this.getFriends();
+    if (!friends.length) {
+      wrap.innerHTML = &#39;&lt;div class=&#34;friends-empty&#34;&gt;No friends yet. Share your code above!&lt;/div&gt;&#39;;
+      return;
+    }
+    wrap.innerHTML = friends.map(f =&gt; `
+      &lt;div class=&#34;friend-row&#34;&gt;
+        &lt;div class=&#34;friend-avatar&#34;&gt;${f.code.slice(0,2)}&lt;/div&gt;
+        &lt;div class=&#34;friend-row-info&#34;&gt;
+          &lt;div class=&#34;friend-row-code&#34;&gt;${f.code}&lt;/div&gt;
+          &lt;div class=&#34;friend-row-added&#34;&gt;Added ${new Date(f.addedAt).toLocaleDateString()}&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&#34;remove-friend-btn&#34; onclick=&#34;App.removeFriend(&#39;${f.code}&#39;)&#34;&gt;
+          &lt;i data-lucide=&#34;x&#34; style=&#34;width:12px;height:12px;&#34;&gt;&lt;/i&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    `).join(&#39;&#39;);
+    lucide.createIcons();
+  }
+};
+
+document.addEventListener(&#34;DOMContentLoaded&#34;, () =&gt; {
+  window.App.init();
+  lucide.createIcons();
+});
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.fog.min.js">
+    </script>
+    <script>
+      VANTA.FOG({
+  el: &#34;body&#34;,
+  mouseControls: true,
+  touchControls: true,
+  gyroControls: false,
+  minHeight: 200.00,
+  minWidth: 200.00,
+  midtoneColor: 0xff8700,
+  lowlightColor: 0xff3b00,
+  baseColor: 0x0a0806,
+  blurFactor: 0.62,
+  speed: 1.2,
+  zoom: 0.9
+})
+    </script>
+  </body>
+</html>
